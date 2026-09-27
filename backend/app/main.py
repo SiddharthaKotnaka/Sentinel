@@ -78,6 +78,17 @@ app.include_router(cameras_router, prefix="/api")
 app.include_router(cyber_router, prefix="/api")
 
 
+@app.on_event("startup")
+def on_startup():
+    """Ensure database schema is initialized on startup (essential for ephemeral container storage)."""
+    try:
+        from database.session import init_db
+        init_db()
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning(f"Database startup initialization note: {e}")
+
+
 @app.get("/")
 def root():
     """Root entry point providing basic API identification."""

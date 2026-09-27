@@ -1,42 +1,21 @@
 services:
   # ---------------------------------------------------------------------------
-  # 1. Private Ollama Service (Internal Only - Not exposed to the public Internet)
-  # ---------------------------------------------------------------------------
-  - type: pserv
-    name: sentinel-ollama
-    runtime: docker
-    dockerfilePath: ./docker/ollama.Dockerfile
-    plan: standard # 4 GB RAM recommended for Qwen3 4B Instruct
-    disk:
-      name: ollama-cache
-      mountPath: /root/.ollama
-      sizeGB: 10
-
-  # ---------------------------------------------------------------------------
-  # 2. FastAPI Backend Service (Public API with Persistent Media & SQLite Storage)
+  # 1. FastAPI Backend Web Service (Render Free Tier)
+  # Ephemeral storage, zero proprietary AI API keys, built-in deterministic fallback
   # ---------------------------------------------------------------------------
   - type: web
     name: sentinel-backend
     runtime: docker
     dockerfilePath: ./docker/backend.Dockerfile
-    plan: standard
-    numInstances: 1
+    plan: free
     healthCheckPath: /api/health
-    disk:
-      name: sentinel-storage
-      mountPath: /app/storage
-      sizeGB: 20
     envVars:
       - key: ENVIRONMENT
         value: production
       - key: BACKEND_HOST
         value: 0.0.0.0
       - key: LLM_PROVIDER
-        value: local_ollama
-      - key: LLM_MODEL
-        value: qwen3:4b-instruct
-      - key: OLLAMA_BASE_URL
-        value: http://sentinel-ollama:11434
+        value: mock # Built-in non-network deterministic provider for zero-cost operation
       - key: STORAGE_BASE_DIR
         value: /app/storage
       - key: DATABASE_URL
@@ -48,13 +27,13 @@ services:
           envVarKey: RENDER_EXTERNAL_URL
 
   # ---------------------------------------------------------------------------
-  # 3. Next.js Frontend Dashboard (Public Web Service)
+  # 2. Next.js Frontend Dashboard (Render Free Tier)
   # ---------------------------------------------------------------------------
   - type: web
     name: sentinel-frontend
     runtime: node
     rootDir: frontend
-    plan: starter
+    plan: free
     buildCommand: npm install && npm run build
     startCommand: npm run start
     envVars:
