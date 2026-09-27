@@ -1,0 +1,65 @@
+version: "3.8"
+
+services:
+  # ---------------------------------------------------------------------------
+  # 1. Local Private Ollama Service with Qwen3 4B Instruct
+  # ---------------------------------------------------------------------------
+  sentinel-ollama:
+    container_name: sentinel-ollama
+    build:
+      context: .
+      dockerfile: docker/ollama.Dockerfile
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_cache:/root/.ollama
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # 2. Sentinel FastAPI Backend Service
+  # ---------------------------------------------------------------------------
+  sentinel-backend:
+    container_name: sentinel-backend
+    build:
+      context: .
+      dockerfile: docker/backend.Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - ENVIRONMENT=development
+      - BACKEND_HOST=0.0.0.0
+      - BACKEND_PORT=8000
+      - PORT=8000
+      - BACKEND_CORS_ORIGINS=["http://localhost:3000","http://127.0.0.1:3000"]
+      - LLM_PROVIDER=local_ollama
+      - LLM_MODEL=qwen3:4b-instruct
+      - OLLAMA_BASE_URL=http://sentinel-ollama:11434
+      - STORAGE_BASE_DIR=/app/storage
+      - DATABASE_URL=sqlite:////app/storage/sentinel.db
+    volumes:
+      - ./storage:/app/storage
+    depends_on:
+      - sentinel-ollama
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # 3. Sentinel Next.js Frontend Service
+  # ---------------------------------------------------------------------------
+  sentinel-frontend:
+    container_name: sentinel-frontend
+    build:
+      context: .
+      dockerfile: docker/frontend.Dockerfile
+      args:
+        - NEXT_PUBLIC_API_URL=http://localhost:8000
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+      - BACKEND_INTERNAL_URL=http://sentinel-backend:8000
+    depends_on:
+      - sentinel-backend
+    restart: unless-stopped
+
+volumes:
+  ollama_cache:

@@ -1,0 +1,65 @@
+services:
+  # ---------------------------------------------------------------------------
+  # 1. Private Ollama Service (Internal Only - Not exposed to the public Internet)
+  # ---------------------------------------------------------------------------
+  - type: pserv
+    name: sentinel-ollama
+    runtime: docker
+    dockerfilePath: ./docker/ollama.Dockerfile
+    plan: standard # 4 GB RAM recommended for Qwen3 4B Instruct
+    disk:
+      name: ollama-cache
+      mountPath: /root/.ollama
+      sizeGB: 10
+
+  # ---------------------------------------------------------------------------
+  # 2. FastAPI Backend Service (Public API with Persistent Media & SQLite Storage)
+  # ---------------------------------------------------------------------------
+  - type: web
+    name: sentinel-backend
+    runtime: docker
+    dockerfilePath: ./docker/backend.Dockerfile
+    plan: standard
+    numInstances: 1
+    healthCheckPath: /api/health
+    disk:
+      name: sentinel-storage
+      mountPath: /app/storage
+      sizeGB: 20
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: BACKEND_HOST
+        value: 0.0.0.0
+      - key: LLM_PROVIDER
+        value: local_ollama
+      - key: LLM_MODEL
+        value: qwen3:4b-instruct
+      - key: OLLAMA_BASE_URL
+        value: http://sentinel-ollama:11434
+      - key: STORAGE_BASE_DIR
+        value: /app/storage
+      - key: DATABASE_URL
+        value: sqlite:////app/storage/sentinel.db
+      - key: BACKEND_CORS_ORIGINS
+        fromService:
+          type: web
+          name: sentinel-frontend
+          property: url
+
+  # ---------------------------------------------------------------------------
+  # 3. Next.js Frontend Dashboard (Public Web Service)
+  # ---------------------------------------------------------------------------
+  - type: web
+    name: sentinel-frontend
+    runtime: node
+    rootDir: frontend
+    plan: starter
+    buildCommand: npm install && npm run build
+    startCommand: npm run start
+    envVars:
+      - key: NEXT_PUBLIC_API_URL
+        fromService:
+          type: web
+          name: sentinel-backend
+          property: url
