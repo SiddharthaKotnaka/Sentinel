@@ -45,7 +45,7 @@ services:
         fromService:
           type: web
           name: sentinel-frontend
-          property: url
+          envVarKey: RENDER_EXTERNAL_URL
 
   # ---------------------------------------------------------------------------
   # 3. Next.js Frontend Dashboard (Public Web Service)
@@ -62,4 +62,4 @@ services:
         fromService:
           type: web
           name: sentinel-backend
-          property: url
+          envVarKey: RENDER_EXTERNAL_URL
